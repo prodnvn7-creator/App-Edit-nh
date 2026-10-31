@@ -1,51 +1,27 @@
-param(
-    [string]$RepoUrl
-)
-
 $gitExe = "$env:LOCALAPPDATA\Programs\MinGit\cmd\git.exe"
 if (-not (Test-Path $gitExe)) {
     $gitExe = "git"
 }
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "    PUSH PROJECT 'MEO TIN SHOW POSTER' TO GITHUB          " -ForegroundColor Green
+Write-Host "   PUSH UPDATES TO GITHUB: App-Edit-nh                    " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-if (-not $RepoUrl) {
+& $gitExe add .
+$status = & $gitExe status --porcelain
+if ($status) {
+    $msg = Read-Host "Nhap ghi chu commit (mac dinh: 'update poster studio')"
+    if (-not $msg) { $msg = "update poster studio" }
+    & $gitExe commit -m $msg
+}
+
+Write-Host "Dang day code len GitHub..." -ForegroundColor Yellow
+& $gitExe push origin main
+
+if ($LASTEXITCODE -eq 0) {
     Write-Host ""
-    Write-Host "Vui lòng nhập đường dẫn GitHub Repository của bạn:" -ForegroundColor Yellow
-    Write-Host "Ví dụ: https://github.com/ten-tai-khoan/meo-tin-show-poster.git" -ForegroundColor Gray
-    $RepoUrl = Read-Host "Link Repository"
-}
-
-if (-not $RepoUrl) {
-    Write-Host "Lỗi: Chưa nhập đường dẫn repository!" -ForegroundColor Red
-    exit 1
-}
-
-try {
-    # Check if origin already exists
-    $remotes = & $gitExe remote
-    if ($remotes -contains "origin") {
-        Write-Host "Cập nhật remote origin..." -ForegroundColor Yellow
-        & $gitExe remote set-url origin $RepoUrl
-    } else {
-        Write-Host "Thêm remote origin..." -ForegroundColor Yellow
-        & $gitExe remote add origin $RepoUrl
-    }
-
-    Write-Host "Đang đẩy code lên branch main..." -ForegroundColor Cyan
-    & $gitExe branch -M main
-    & $gitExe push -u origin main
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host ""
-        Write-Host "🎉 THÀNH CÔNG! Dự án đã được đẩy lên GitHub:" -ForegroundColor Green
-        Write-Host "$RepoUrl" -ForegroundColor White
-    } else {
-        Write-Host ""
-        Write-Host "Lưu ý: Nếu GitHub yêu cầu đăng nhập, hãy đăng nhập bằng Personal Access Token (PAT) hoặc tài khoản GitHub trong cửa sổ hiện lên." -ForegroundColor Yellow
-    }
-} catch {
-    Write-Host "Lỗi khi push: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "🎉 THANH CONG! Code da duoc cap nhat len GitHub:" -ForegroundColor Green
+    Write-Host "https://github.com/prodnvn7-creator/App-Edit-nh" -ForegroundColor White
+} else {
+    Write-Host "Co loi khi push len GitHub." -ForegroundColor Red
 }
