@@ -1,0 +1,12 @@
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary files & logs
+*.zip
+*.log
+*.tmp
+
+# Local testing
+install_mingit.ps1

@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MÉO TIN SHOW - Trình Tạo Poster Nghệ Sĩ Băng Tuyết (Ice Poster Studio)</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Load @imgly/background-removal ESM library support -->
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+        </svg>
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="brand-title">MÉO TIN SHOW</span>
+          <span class="brand-subtitle">POSTER STUDIO 5-LAYERS</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Resolution picker -->
+      <select id="exportScale" style="width: auto; padding: 7px 10px; font-size: 0.78rem;">
+        <option value="1">Độ phân giải 1x (512x382)</option>
+        <option value="2" selected>Độ phân giải 2x HD (1024x764)</option>
+        <option value="4">Độ phân giải 4x 4K UHD (2048x1528)</option>
+      </select>
+
+      <button id="btnCompare" class="btn btn-secondary btn-sm" title="So sánh với mẫu thiết kế gốc">
+        👁️ So sánh mẫu DAM ON
+      </button>
+
+      <button id="btnExport" class="btn btn-export">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Tải Ảnh PNG (Nét Căng)
+      </button>
+    </div>
+  </header>
+
+  <!-- Container -->
+  <div class="app-container">
+    
+    <!-- Canvas Stage -->
+    <main class="canvas-stage">
+      <!-- Toolbar -->
+      <div class="stage-toolbar">
+        <button id="btnZoomIn" class="btn btn-secondary btn-icon" title="Phóng to Canvas">+</button>
+        <button id="btnZoomOut" class="btn btn-secondary btn-icon" title="Thu nhỏ Canvas">-</button>
+        <button id="btnResetView" class="btn btn-secondary btn-icon" title="Căn giữa Canvas">⟲</button>
+        <button id="btnToggleGuide" class="btn btn-secondary btn-sm" title="Bật/tắt khung điều khiển kéo thả">📐 Khung viền</button>
+      </div>
+
+      <!-- Canvas Wrapper -->
+      <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="posterCanvas" width="1024" height="764"></canvas>
+      </div>
+
+      <div class="stage-hint">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ice-cyan)" stroke-width="2">
+          <path d="M5 9l4-4 4 4M9 5v14M15 19l4-4-4-4M19 15H5"/>
+        </svg>
+        Mẹo: Bạn có thể nhấp và kéo trực tiếp Nhân vật, Chữ hoặc Tia sáng trên Canvas để đổi vị trí!
+      </div>
+    </main>
+
+    <!-- Control Sidebar -->
+    <aside class="control-sidebar">
+      <!-- Tabs Navigation -->
+      <nav class="tabs-nav">
+        <button class="tab-btn active" data-tab="tab-artist">
+          <span class="tab-icon">👤</span>
+          <span>Nhân vật</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-glow">
+          <span class="tab-icon">⚡</span>
+          <span>Hào quang</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-text">
+          <span class="tab-icon">❄️</span>
+          <span>Chữ Băng</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-fx">
+          <span class="tab-icon">✨</span>
+          <span>Lấp lánh</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-bg">
+          <span class="tab-icon">🖼️</span>
+          <span>Khung nền</span>
+        </button>
+      </nav>
+
+      <!-- Panels Container -->
+      <div class="panels-container">
+        
+        <!-- ================= TAB 1: NHÂN VẬT & TÁCH NỀN AI ================= -->
+        <section id="tab-artist" class="tab-panel active">
+          
+          <!-- Upload Box -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">1. Tải ảnh & Tách nền AI</span>
+              <span class="section-badge">Layer 3</span>
+            </div>
+
+            <div class="dropzone" id="dropzone">
+              <input type="file" id="fileInput" accept="image/*" style="display: none;">
+              <div class="dropzone-icon">📷</div>
+              <div class="dropzone-text">Kéo thả ảnh chân dung hoặc bấm để chọn</div>
+              <div class="dropzone-subtext">Hỗ trợ JPG, PNG (tự động xóa phông hoặc dùng ảnh PNG trong suốt)</div>
+            </div>
+
+            <!-- AI Status indicator -->
+            <div id="aiStatusCard" class="ai-status-card">
+              <div class="ai-status-title">
+                <div class="spinner"></div>
+                <span id="aiStatusText">AI đang chạy tách nền (@imgly Wasm)...</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="aiProgressBar" class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div style="display: flex; gap: 8px;">
+              <button id="btnRunAI" class="btn btn-primary" style="flex: 1;" title="Chạy AI xóa nền cho ảnh hiện tại">
+                🤖 Chạy AI Xóa Nền
+              </button>
+              <button id="btnColorKey" class="btn btn-secondary btn-sm" title="Khử phông đơn sắc nếu chụp phông xanh/đen/trắng">
+                Key Phông
+              </button>
+            </div>
+
+            <!-- Preloaded Sample Artists -->
+            <div class="control-row" style="margin-top: 6px;">
+              <label class="control-label">Hoặc dùng nhanh ảnh mẫu sẵn có:</label>
+              <div class="preset-grid">
+                <div class="preset-card active" data-preset="dam_on">
+                  <img src="assets/artist_sample_dam_on.png" alt="DAM ON">
+                  <span class="preset-label">DAM ON (Chuẩn)</span>
+                </div>
+                <div class="preset-card" data-preset="sample_1">
+                  <img src="assets/sample_artist.jpg" alt="Ca sĩ 1">
+                  <span class="preset-label">Performer 1</span>
+                </div>
+                <div class="preset-card" data-preset="sample_2">
+                  <img src="assets/sample_artist_2.jpg" alt="Ca sĩ 2">
+                  <span class="preset-label">Performer 2</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Position & Transform -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">2. Kích thước & Vị trí</span>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Thu phóng (Scale):</span>
+                <span id="valArtistScale" class="control-value">100%</span>
+              </div>
+              <input type="range" id="artistScale" min="30" max="250" value="100">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="control-row">
+                <div class="control-label">
+                  <span>Trái / Phải (X):</span>
+                  <span id="valArtistX" class="control-value">0</span>
+                </div>
+                <input type="range" id="artistX" min="-300" max="300" value="0">
+              </div>
+              <div class="control-row">
+                <div class="control-label">
+                  <span>Lên / Xuống (Y):</span>
+                  <span id="valArtistY" class="control-value">0</span>
+                </div>
+                <input type="range" id="artistY" min="-250" max="250" value="0">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button id="btnFlipArtist" class="btn btn-secondary btn-sm" style="flex: 1;">↔️ Lật Ngang</button>
+              <button id="btnResetArtistPos" class="btn btn-secondary btn-sm" style="flex: 1;">🎯 Đặt Lại Tâm</button>
+            </div>
+          </div>
+
+          <!-- Layer 3: Gradient Mask (Fade Bottom) -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">3. Chìm chân vào băng (Gradient Mask)</span>
+              <label class="switch">
+                <input type="checkbox" id="enableGradientMask" checked>
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+              Mờ dần từ phần bụng/đùi xuống dưới để nhân vật chìm tự nhiên vào lớp băng thay vì bị cắt ngang cứng nhắc.
+            </p>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Vị trí bắt đầu mờ (Fade Start):</span>
+                <span id="valFadeStart" class="control-value">62%</span>
+              </div>
+              <input type="range" id="fadeStart" min="20" max="95" value="62">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ mờ mềm mại (Softness):</span>
+                <span id="valFadeSoftness" class="control-value">38%</span>
+              </div>
+              <input type="range" id="fadeSoftness" min="10" max="70" value="38">
+            </div>
+          </div>
+
+          <!-- Color Grading (Tiệp màu hang băng) -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">4. Chỉnh màu tiệp môi trường (Color Grading)</span>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ tương phản (Contrast):</span>
+                <span id="valContrast" class="control-value">115%</span>
+              </div>
+              <input type="range" id="artistContrast" min="70" max="160" value="115">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Ám xanh băng vào vùng tối (Cool Shadow):</span>
+                <span id="valCoolTint" class="control-value">22%</span>
+              </div>
+              <input type="range" id="artistCoolTint" min="0" max="60" value="22">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ sáng (Brightness):</span>
+                <span id="valBrightness" class="control-value">95%</span>
+              </div>
+              <input type="range" id="artistBrightness" min="60" max="140" value="95">
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ================= TAB 2: HÀO QUANG LƯNG (LAYER 2 BACK GLOW) ================= -->
+        <section id="tab-glow" class="tab-panel">
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">Hào quang xanh sau lưng (Layer 2)</span>
+              <span class="section-badge">#00d2ff</span>
+            </div>
+
+            <label class="switch-label">
+              <span>Bật Hào Quang Phát Sáng Sau Lưng</span>
+              <div class="switch">
+                <input type="checkbox" id="enableBackGlow" checked>
+                <span class="slider-round"></span>
+              </div>
+            </label>
+
+            <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+              Dùng chính hình dáng alpha của người đó phóng to nhẹ, tô màu xanh băng làm mờ đặt ngay sau lưng để tạo hào quang xanh phát sáng quanh viền áo.
+            </p>
+
+            <div class="control-row">
+              <label class="control-label">Màu Hào Quang:</label>
+              <div class="color-picker-wrap">
+                <input type="color" id="glowColor" value="#00d2ff">
+                <span style="font-size: 0.8rem; font-family: monospace;" id="valGlowColor">#00d2ff</span>
+              </div>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ mờ phát sáng (Blur):</span>
+                <span id="valGlowBlur" class="control-value">25px</span>
+              </div>
+              <input type="range" id="glowBlur" min="5" max="65" value="25">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Cường độ phát quang (Intensity):</span>
+                <span id="valGlowIntensity" class="control-value">85%</span>
+              </div>
+              <input type="range" id="glowIntensity" min="10" max="150" value="85">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ dày viền hào quang (Spread):</span>
+                <span id="valGlowSpread" class="control-value">1.06x</span>
+              </div>
+              <input type="range" id="glowSpread" min="100" max="125" value="106">
+            </div>
+
+            <div class="control-row">
+              <label class="control-label">Chế độ hòa trộn (Blend Mode):</label>
+              <select id="glowBlend">
+                <option value="screen" selected>Screen (Sáng rực rỡ)</option>
+                <option value="lighter">Lighter (Cường độ cao)</option>
+                <option value="source-over">Normal</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 3: CHỮ BĂNG (LAYER 4 ICE TYPOGRAPHY) ================= -->
+        <section id="tab-text" class="tab-panel">
+          
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">1. Nội dung & Font Chữ</span>
+              <span class="section-badge">Layer 4</span>
+            </div>
+
+            <div class="control-row">
+              <label class="control-label">Tên Nghệ Sĩ (Artist Name):</label>
+              <input type="text" id="artistNameInput" value="DAM ON" placeholder="Nhập tên Artist...">
+            </div>
+
+            <div class="control-row">
+              <label class="control-label">Kiểu Font Gai Băng:</label>
+              <select id="fontSelect">
+                <option value="'CF Jack Story', sans-serif" selected>CF Jack Story (Gai băng nhũ đá chuẩn poster)</option>
+                <option value="'Ice Cold', sans-serif">Ice Cold (Băng tuyết chảy)</option>
+                <option value="Impact, sans-serif">Impact (Chữ đậm khối)</option>
+              </select>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Góc nghiêng (Tilt Angle):</span>
+                <span id="valTextTilt" class="control-value">-8°</span>
+              </div>
+              <input type="range" id="textTilt" min="-25" max="25" value="-8">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Cỡ chữ (Font Size):</span>
+                <span id="valFontSize" class="control-value">82px</span>
+              </div>
+              <input type="range" id="fontSize" min="40" max="140" value="82">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="control-row">
+                <div class="control-label">
+                  <span>Vị trí X:</span>
+                  <span id="valTextX" class="control-value">0</span>
+                </div>
+                <input type="range" id="textX" min="-250" max="250" value="0">
+              </div>
+              <div class="control-row">
+                <div class="control-label">
+                  <span>Vị trí Y:</span>
+                  <span id="valTextY" class="control-value">0</span>
+                </div>
+                <input type="range" id="textY" min="-200" max="200" value="0">
+              </div>
+            </div>
+          </div>
+
+          <!-- Ice Texture & 3D Shading -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">2. Phủ Texture Băng & Viền 3D</span>
+            </div>
+
+            <div class="control-row">
+              <label class="control-label">Chất liệu băng bên trong ruột chữ (Ice Texture):</label>
+              <select id="iceTextureSelect">
+                <option value="assets/ice_texture.jpg" selected>Texture Băng Pha Lê Xanh (Chuẩn)</option>
+                <option value="assets/ice_texture_2.jpg">Texture Vết Nứt Băng Sâu</option>
+                <option value="assets/template_clean.png">Texture Nền Hang Băng</option>
+              </select>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ sáng chất liệu băng:</span>
+                <span id="valTextureBrightness" class="control-value">120%</span>
+              </div>
+              <input type="range" id="textureBrightness" min="60" max="180" value="120">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Viền phát sáng Cyan (Glow Shadow):</span>
+                <span id="valTextGlow" class="control-value">22px</span>
+              </div>
+              <input type="range" id="textGlow" min="0" max="50" value="22">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ dày viền ngoài 3D (Outer Stroke):</span>
+                <span id="valTextStroke" class="control-value">5px</span>
+              </div>
+              <input type="range" id="textStroke" min="0" max="12" value="5">
+            </div>
+          </div>
+
+          <!-- Crown on Text -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">3. Vương miện trên đỉnh chữ (Crown)</span>
+              <label class="switch">
+                <input type="checkbox" id="enableCrown" checked>
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <div class="control-row">
+              <label class="switch-label">
+                <span>Nghiêng theo góc chữ (-8°)</span>
+                <div class="switch">
+                  <input type="checkbox" id="crownFollowTilt" checked>
+                  <span class="slider-round"></span>
+                </div>
+              </label>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Kích thước vương miện:</span>
+                <span id="valCrownScale" class="control-value">100%</span>
+              </div>
+              <input type="range" id="crownScale" min="40" max="180" value="100">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Khoảng cách phía trên chữ (Offset Y):</span>
+                <span id="valCrownY" class="control-value">-55px</span>
+              </div>
+              <input type="range" id="crownOffsetY" min="-120" max="10" value="-55">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Dịch ngang vương miện (Offset X):</span>
+                <span id="valCrownX" class="control-value">0px</span>
+              </div>
+              <input type="range" id="crownOffsetX" min="-100" max="100" value="0">
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ================= TAB 4: LẤP LÁNH & SƯƠNG KHÓI (LAYER 5 FOREGROUND) ================= -->
+        <section id="tab-fx" class="tab-panel">
+          
+          <!-- Sparkles -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">Tia sáng lấp lánh 4 cánh (Sparkles)</span>
+              <span class="section-badge">Layer 5</span>
+            </div>
+
+            <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+              Các ngôi sao lấp lánh 4 cánh tự động gắn vào các góc nhọn của chữ và đỉnh vương miện. Bạn có thể bấm thẳng vào Canvas để thêm sao mới!
+            </p>
+
+            <div style="display: flex; gap: 8px;">
+              <button id="btnSparklePreset" class="btn btn-secondary btn-sm" style="flex: 1;">✨ Đặt lại 3 sao chuẩn</button>
+              <button id="btnAddSparkle" class="btn btn-primary btn-sm" style="flex: 1;">+ Thêm ngôi sao</button>
+              <button id="btnClearSparkles" class="btn btn-secondary btn-sm" style="color: #ff6b6b;">Xóa hết</button>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Kích thước tia sáng chung:</span>
+                <span id="valSparkleScale" class="control-value">100%</span>
+              </div>
+              <input type="range" id="sparkleScale" min="40" max="220" value="100">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ rực rỡ (Brightness):</span>
+                <span id="valSparkleBrightness" class="control-value">100%</span>
+              </div>
+              <input type="range" id="sparkleBrightness" min="30" max="180" value="100">
+            </div>
+          </div>
+
+          <!-- Ice Mist / Fog -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">Lớp sương khói băng (Ice Fog Mist)</span>
+              <label class="switch">
+                <input type="checkbox" id="enableFog" checked>
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ dày đặc của sương:</span>
+                <span id="valFogOpacity" class="control-value">35%</span>
+              </div>
+              <input type="range" id="fogOpacity" min="0" max="100" value="35">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Chiều cao lớp sương (Bottom Height):</span>
+                <span id="valFogHeight" class="control-value">40%</span>
+              </div>
+              <input type="range" id="fogHeight" min="15" max="80" value="40">
+            </div>
+          </div>
+
+          <!-- Floating Ice Crystals -->
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">Bụi tuyết / Tinh thể băng bay</span>
+              <label class="switch">
+                <input type="checkbox" id="enableSnow" checked>
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Mật độ tinh thể:</span>
+                <span id="valSnowDensity" class="control-value">40 hạt</span>
+              </div>
+              <input type="range" id="snowDensity" min="10" max="120" value="40">
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ================= TAB 5: KHUNG NỀN (LAYER 1 BACKGROUND) ================= -->
+        <section id="tab-bg" class="tab-panel">
+          <div class="card-section">
+            <div class="section-header">
+              <span class="section-title">Khung nền hang băng (Layer 1)</span>
+              <span class="section-badge">Gốc</span>
+            </div>
+
+            <div class="control-row">
+              <label class="control-label">Chọn bản nền:</label>
+              <select id="bgSelect">
+                <option value="clean" selected>Nền sạch (Đã tách vương miện giữa - KHUYÊN DÙNG)</option>
+                <option value="original">Nền gốc (Có sẵn vương miện trên nền)</option>
+                <option value="custom">Tải ảnh nền riêng của bạn...</option>
+              </select>
+            </div>
+
+            <input type="file" id="customBgInput" accept="image/*" style="display: none;">
+
+            <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+              💡 <b>Lưu ý kỹ thuật:</b> Khi dùng "Nền sạch", hình chiếc vương miện ở giữa được tách riêng lên Layer 4 để luôn nằm trên đầu chữ nghệ sĩ và không bị cơ thể người che mất.
+            </p>
+
+            <div class="control-row">
+              <label class="switch-label">
+                <span>Hiển thị ngày biểu diễn (19.12)</span>
+                <div class="switch">
+                  <input type="checkbox" id="showDate" checked>
+                  <span class="slider-round"></span>
+                </div>
+              </label>
+            </div>
+
+            <div class="control-row">
+              <label class="control-label">Đổi ngày biểu diễn (nếu muốn):</label>
+              <input type="text" id="customDateText" value="19.12" placeholder="VD: 19.12 hoặc 25.12">
+            </div>
+
+            <div class="control-row">
+              <div class="control-label">
+                <span>Độ tối/sáng của nền hang băng:</span>
+                <span id="valBgBrightness" class="control-value">100%</span>
+              </div>
+              <input type="range" id="bgBrightness" min="50" max="150" value="100">
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Compare Modal -->
+  <div class="modal-overlay" id="compareModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-size: 1rem; color: var(--ice-cyan); display: flex; align-items: center; gap: 8px;">
+          <span>❄️</span> So sánh Thiết kế của bạn với Poster Mẫu DAM ON
+        </h3>
+        <button id="btnCloseCompare" class="btn btn-secondary btn-sm">✕ Đóng</button>
+      </div>
+      <div class="modal-body">
+        <div class="compare-col">
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--ice-cyan);">Poster của bạn (Hiện tại)</span>
+          <img id="compareCurrentImg" src="" alt="Hiện tại">
+        </div>
+        <div class="compare-col">
+          <span style="font-size: 0.8rem; font-weight: 700; color: #fff;">Poster Mẫu Chuẩn (DAM ON Target)</span>
+          <img src="assets/example_dam_on.png" alt="Mẫu Target">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
