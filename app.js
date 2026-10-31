@@ -36,6 +36,7 @@ const state = {
   fadeSoftness: 38,
 
   // Layer 4: Text & Crown
+  enableText: true,
   artistName: 'DAM ON',
   fontFamily: "'CF Jack Story', sans-serif",
   textTilt: -8,
@@ -437,64 +438,100 @@ function renderLayer3_Artist(box) {
 /**
  * Layer 4: Ice Dripping Typography & Crown
  */
+/**
+ * Layer 4: Render Ice Text Layer with procedural icicles, texture & crown
+ * (Thuật toán chính xác do người dùng cung cấp kèm gai băng nhũ đá tự động)
+ */
+function renderIceTextLayer(mainCtx, text, x, y, fontSize, rotationDeg, iceTextureImg) {
+    if (!text || !state.enableText) return;
+
+    // 1. Tạo Offscreen Canvas riêng để không làm hỏng nền chính
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = mainCtx.canvas.width;
+    offCanvas.height = mainCtx.canvas.height;
+    const ctx = offCanvas.getContext('2d');
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((rotationDeg * Math.PI) / 180);
+    ctx.font = `900 ${fontSize}px ${state.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 2. Vẽ khuôn chữ gốc + Gai băng nhọn (Icicles) rủ xuống dưới chân chữ
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, 0, 0);
+
+    const textWidth = ctx.measureText(text).width;
+    const startX = -textWidth / 2;
+    const bottomY = fontSize * 0.32;
+
+    // Tạo gai băng tự động dọc theo đáy chữ
+    for (let i = 0; i < textWidth; i += 9) {
+        const spikeLength = (Math.sin(i * 0.45) * 0.5 + 0.5) * (fontSize * 0.38) + 6;
+        const spikeWidth = 3 + (i % 5);
+        ctx.beginPath();
+        ctx.moveTo(startX + i, bottomY - 5);
+        ctx.lineTo(startX + i + spikeWidth / 2, bottomY + spikeLength);
+        ctx.lineTo(startX + i + spikeWidth, bottomY - 5);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // 3. Khóa kênh Alpha (source-in): Chỉ tô màu và lồng ảnh băng VÀO TRONG RUỘT CHỮ
+    ctx.globalCompositeOperation = 'source-in';
+
+    // Tô Gradient băng (Trắng sáng ở đỉnh -> Xanh cyan -> Xanh đậm ở mũi gai)
+    const grad = ctx.createLinearGradient(0, -fontSize * 0.5, 0, fontSize * 0.7);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.45, '#b8f5ff');
+    grad.addColorStop(0.75, '#00c8ff');
+    grad.addColorStop(1, '#005187');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-textWidth, -fontSize, textWidth * 2, fontSize * 2.2);
+
+    // Lồng thêm ảnh bề mặt băng nứt (nếu đã tải)
+    if (iceTextureImg && iceTextureImg.complete && iceTextureImg.naturalWidth > 0) {
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(iceTextureImg, -textWidth * 0.6, -fontSize * 0.6, textWidth * 1.2, fontSize * 1.4);
+        ctx.globalAlpha = 1.0;
+    }
+
+    // 3b. Viền sáng nhẹ và gắn vương miện trên đầu chữ
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineWidth = Math.max(1, 1.5 * S);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.strokeText(text, 0, 0);
+
+    // Gắn vương miện trên đầu chữ (Layer 4)
+    if (state.enableCrown) {
+      renderCrownAboveText(ctx, 0, 0, textWidth, fontSize);
+    }
+
+    ctx.restore();
+
+    // 4. Đưa chữ băng từ Offscreen Canvas sang Canvas chính kèm Hào quang Neon
+    mainCtx.save();
+    mainCtx.shadowColor = '#00e5ff';
+    mainCtx.shadowBlur = state.textGlow > 0 ? state.textGlow * S : 25;
+    mainCtx.drawImage(offCanvas, 0, 0);
+    
+    // Đánh thêm 1 lớp glow tâm trắng cho rực giống ảnh mẫu DAM ON
+    mainCtx.shadowColor = '#ffffff';
+    mainCtx.shadowBlur = 6;
+    mainCtx.drawImage(offCanvas, 0, 0);
+    mainCtx.restore();
+}
+
 function renderLayer4_TextAndCrown() {
-  const text = state.artistName || 'DAM ON';
-  const tiltAngle = (state.textTilt * Math.PI) / 180;
+  if (!state.enableText || !state.artistName) return;
+
+  const text = state.artistName;
+  const tilt = state.textTilt;
   const cx = BASE_W / 2 + state.textX * S;
   const cy = BASE_H * 0.72 + state.textY * S;
   const curFontSize = state.fontSize * S;
 
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(tiltAngle);
-
-  // Set font
-  ctx.font = `900 ${curFontSize}px ${state.fontFamily}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  // Measure text
-  const metrics = ctx.measureText(text);
-  const textWidth = metrics.width;
-  const textHeight = curFontSize * 1.2;
-
-  // 1. Draw Outer Glowing Shadow (shadowBlur màu xanh cyan)
-  if (state.textGlow > 0) {
-    ctx.save();
-    ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = state.textGlow * S;
-    ctx.lineWidth = (state.textStroke + 3) * S;
-    ctx.strokeStyle = '#004c73';
-    ctx.strokeText(text, 0, 0);
-    // Double pass for punchy glow
-    ctx.strokeText(text, 0, 0);
-    ctx.restore();
-  }
-
-  // 2. Draw 3D Outer Outline (Icy Cyan stroke)
-  ctx.lineWidth = state.textStroke * S;
-  ctx.strokeStyle = '#00d2ff';
-  ctx.strokeText(text, 0, 0);
-
-  // 3. Create Offscreen Canvas to composite the Ice Texture into the text (source-in)
-  const textCanvas = document.createElement('canvas');
-  textCanvas.width = Math.max(200, Math.ceil(textWidth + 80 * S));
-  textCanvas.height = Math.max(100, Math.ceil(textHeight + 80 * S));
-  const tctx = textCanvas.getContext('2d');
-
-  const tcx = textCanvas.width / 2;
-  const tcy = textCanvas.height / 2;
-
-  tctx.font = `900 ${curFontSize}px ${state.fontFamily}`;
-  tctx.textAlign = 'center';
-  tctx.textBaseline = 'middle';
-
-  // Draw base silhouette
-  tctx.fillStyle = '#ffffff';
-  tctx.fillText(text, tcx, tcy);
-
-  // Lồng tấm ảnh Ice Texture vào ruột chữ với source-in
-  tctx.globalCompositeOperation = 'source-in';
   let activeTexture = assets.iceTexture;
   if (state.iceTextureSrc.includes('ice_texture_2')) {
     activeTexture = assets.iceTexture2;
@@ -502,69 +539,31 @@ function renderLayer4_TextAndCrown() {
     activeTexture = assets.bgClean;
   }
 
-  if (activeTexture && activeTexture.complete && activeTexture.naturalWidth > 0) {
-    // Tile or scale texture across text bounds
-    tctx.filter = `brightness(${state.textureBrightness}%) contrast(120%)`;
-    tctx.drawImage(activeTexture, 0, 0, textCanvas.width, textCanvas.height);
-    tctx.filter = 'none';
-  } else {
-    // Procedural ice gradient fallback
-    const grad = tctx.createLinearGradient(0, 0, 0, textCanvas.height);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.5, '#7ee4ff');
-    grad.addColorStop(1, '#005b8a');
-    tctx.fillStyle = grad;
-    tctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
-  }
-
-  // Colorize texture with crystal frost gradient overlay
-  tctx.globalCompositeOperation = 'overlay';
-  const frostGrad = tctx.createLinearGradient(0, tcy - curFontSize * 0.5, 0, tcy + curFontSize * 0.5);
-  frostGrad.addColorStop(0, '#ffffff');
-  frostGrad.addColorStop(0.35, '#c2f4ff');
-  frostGrad.addColorStop(0.7, '#00d2ff');
-  frostGrad.addColorStop(1, '#003366');
-  tctx.fillStyle = frostGrad;
-  tctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
-
-  // Draw the textured text onto main canvas
-  ctx.drawImage(textCanvas, -tcx, -tcy);
-
-  // 4. Inner Bright Frost Rim Highlight (White thin stroke)
-  ctx.lineWidth = Math.max(1, 1.5 * S);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.strokeText(text, 0, 0);
-
-  // 5. Crown on top of text (Layer 4 Crown)
-  if (state.enableCrown) {
-    renderCrownAboveText(0, 0, textWidth, curFontSize);
-  }
-
-  ctx.restore();
+  renderIceTextLayer(ctx, text, cx, cy, curFontSize, tilt, activeTexture);
 }
 
 /**
  * Render the vector Crown above the text
  */
-function renderCrownAboveText(tX, tY, textW, fontH) {
+function renderCrownAboveText(targetCtx, tX, tY, textW, fontH) {
   const crownW = 56 * S * (state.crownScale / 100);
   const crownH = 38 * S * (state.crownScale / 100);
   const cX = tX + state.crownOffsetX * S;
   const cY = tY - fontH * 0.65 + state.crownOffsetY * S;
 
-  ctx.save();
-  ctx.translate(cX, cY);
+  targetCtx.save();
+  targetCtx.translate(cX, cY);
 
   // If user disabled crown tilt, counter-rotate
   if (!state.crownFollowTilt) {
-    ctx.rotate(-(state.textTilt * Math.PI) / 180);
+    targetCtx.rotate(-(state.textTilt * Math.PI) / 180);
   }
 
   // Draw Crown Vector Outline with Neon Glow
-  ctx.shadowColor = '#00d2ff';
-  ctx.shadowBlur = 14 * S;
+  targetCtx.shadowColor = '#00d2ff';
+  targetCtx.shadowBlur = 14 * S;
 
-  ctx.beginPath();
+  targetCtx.beginPath();
   // 5-point crown polygon matching the official design
   const pts = [
     [-crownW * 0.38, crownH * 0.38],  // Bottom left
@@ -576,22 +575,22 @@ function renderCrownAboveText(tX, tY, textW, fontH) {
     [-crownW * 0.48, -crownH * 0.22]  // Left peak
   ];
 
-  ctx.moveTo(pts[0][0], pts[0][1]);
+  targetCtx.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) {
-    ctx.lineTo(pts[i][0], pts[i][1]);
+    targetCtx.lineTo(pts[i][0], pts[i][1]);
   }
-  ctx.closePath();
+  targetCtx.closePath();
 
   // Stroke crown
-  ctx.lineWidth = 3.5 * S;
-  ctx.strokeStyle = '#f0faff';
-  ctx.stroke();
+  targetCtx.lineWidth = 3.5 * S;
+  targetCtx.strokeStyle = '#f0faff';
+  targetCtx.stroke();
 
   // Subtle translucent fill
-  ctx.fillStyle = 'rgba(0, 210, 255, 0.12)';
-  ctx.fill();
+  targetCtx.fillStyle = 'rgba(0, 210, 255, 0.15)';
+  targetCtx.fill();
 
-  ctx.restore();
+  targetCtx.restore();
 }
 
 /**
@@ -1058,6 +1057,25 @@ function setupEventListeners() {
     renderPoster();
   });
 
+  // Xóa / Thêm lại nhân vật
+  document.getElementById('btnClearArtist').addEventListener('click', () => {
+    state.artistImg = null;
+    state.artistRawImg = null;
+    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+    renderPoster();
+    showToast('🗑️ Đã xóa nhân vật khỏi poster! Bạn có thể tải ảnh mới hoặc chọn mẫu có sẵn.', 'info');
+  });
+
+  const btnRestore = document.getElementById('btnRestoreArtist');
+  if (btnRestore) {
+    btnRestore.addEventListener('click', () => {
+      loadArtistPreset('dam_on');
+      document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+      const card = document.querySelector('[data-preset="dam_on"]');
+      if (card) card.classList.add('active');
+    });
+  }
+
   // Gradient Mask & Color Grading
   document.getElementById('enableGradientMask').addEventListener('change', (e) => {
     state.enableGradientMask = e.target.checked;
@@ -1088,6 +1106,27 @@ function setupEventListeners() {
   });
 
   // Typography Controls
+  document.getElementById('enableText').addEventListener('change', (e) => {
+    state.enableText = e.target.checked;
+    renderPoster();
+  });
+
+  document.getElementById('btnClearText').addEventListener('click', () => {
+    state.artistName = '';
+    document.getElementById('artistNameInput').value = '';
+    renderPoster();
+    showToast('🗑️ Đã xóa chữ nghệ sĩ! Bạn có thể nhập tên mới bất kỳ lúc nào.', 'info');
+  });
+
+  document.getElementById('btnRestoreText').addEventListener('click', () => {
+    state.enableText = true;
+    document.getElementById('enableText').checked = true;
+    state.artistName = 'DAM ON';
+    document.getElementById('artistNameInput').value = 'DAM ON';
+    renderPoster();
+    showToast('✨ Đã thêm lại chữ DAM ON với hiệu ứng gai băng nhũ đá!', 'success');
+  });
+
   document.getElementById('artistNameInput').addEventListener('input', (e) => {
     state.artistName = e.target.value.toUpperCase();
     renderPoster();
